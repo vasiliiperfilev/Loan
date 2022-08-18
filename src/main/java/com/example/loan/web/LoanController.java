@@ -12,14 +12,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 
 import java.util.List;
 
+// link to github https://github.com/vasiliiperfilev/Loan
 @Controller
 @AllArgsConstructor
 public class LoanController {
     //dependency injection
     @Autowired
     private LoanRepository loanRepository;
-
-    String[] types = { "Business", "Personal" };
 
     @GetMapping(path = "/")
     public String getLoans(Model model) {
@@ -35,7 +34,7 @@ public class LoanController {
     }
 
     @GetMapping("addForm")
-    public String addTodo(Model model){
+    public String addLoan(Model model){
         model.addAttribute("loan", new Loan());
         return "addForm";
     }
@@ -71,12 +70,43 @@ public class LoanController {
 
 
     @GetMapping("editForm")
-    public String editStudents(Model model, String clientno){
+    public String editLoan(Model model, String clientno){
         Loan loan = loanRepository.findLoanByClientno(clientno);
         if (loan == null) throw new RuntimeException("Todo does not exist");
         model.addAttribute("loan", loan);
         model.addAttribute("types", new String[]{"Personal", "Business"});
         return "editForm";
+    }
+
+    @GetMapping("amortizationTable")
+    public String getAmortizationTable(Model model, String clientno){
+        Loan loan = loanRepository.findLoanByClientno(clientno);
+        if (loan == null) throw new RuntimeException("Todo does not exist");
+        int months = loan.getYears() * 12;
+        double startBalance = loan.getLoanamount();
+        double interestRate = (loan.getLoantype().equals("Business") ? 9 : 6) / 12;
+        double monthlyPayment = (loan.getLoanamount() * interestRate) / (1 - Math.pow(1 + interestRate, -months));
+        double[] endingBalances = new double[months];
+        endingBalances[0] = startBalance;
+        double[] interests = new double[months];
+        interests[0] = 0;
+        double[] startingAmounts = new double[months];
+        startingAmounts[0] = 0;
+        for (int i = 1; i < months; i++) {
+            double interestMonthly = (endingBalances[i - 1] * interestRate);
+            double principal = monthlyPayment - interestMonthly;
+            interests[i] = interestMonthly;
+            startingAmounts[i] = principal;
+            endingBalances[i] = endingBalances[i - 1] - principal;
+        }
+
+        model.addAttribute("loan", loan);
+        model.addAttribute("types", new String[]{"Personal", "Business"});
+        model.addAttribute("endingBalances", endingBalances);
+        model.addAttribute("interests", interests);
+        model.addAttribute("startingAmounts", startingAmounts);
+        model.addAttribute("monthlyPayment", monthlyPayment);
+        return "amortizationTable";
     }
 
 }
